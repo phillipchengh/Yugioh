@@ -8,11 +8,11 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
+import ch.boye.httpclientandroidlib.*;
+import ch.boye.httpclientandroidlib.client.methods.HttpGet;
+import ch.boye.httpclientandroidlib.impl.client.DefaultHttpClient;
+import ch.boye.httpclientandroidlib.util.EntityUtils;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -30,13 +30,13 @@ import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
-import android.widget.EditText;
 import android.widget.ListView;
 
 public class MainActivity extends Activity {
 
 	private ArrayAdapter<String> adapter;
 	private AutoCompleteTextView inputSearch;
+	private DefaultHttpClient client;
 	
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,15 +75,14 @@ public class MainActivity extends Activity {
             	if (inputSearch.isPerformingCompletion()) {
                     return;
                 }
-            	String query = "http://yugioh.wikia.com/index.php?action=ajax&rs=getLinkSuggest&format=json&query=" + cs.toString();
 
-            	HttpClient httpclient = new DefaultHttpClient();
-            	HttpGet httpget = new HttpGet(query);
+            	client = new DefaultHttpClient();
             	ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         		NetworkInfo ni = cm.getActiveNetworkInfo();
         		
         		if (ni != null && ni.isConnected()) {
-        			new QuerySuggestions().execute(httpclient, httpget);
+        			new QuerySuggestions().execute(MainActivity.this.client, cs.toString());
+        			int i = 0;
         		} else {
         			//couldn't connect
         		}
@@ -110,28 +109,36 @@ public class MainActivity extends Activity {
 			JSONArray valArray;
 			String[] suggestions;
 			InputStream is;
+			DefaultHttpClient client = (DefaultHttpClient) params[0];
+			String cs = ((String) params[1]).replaceAll(" ", "_");
+			String query = "http://yugioh.wikia.com/index.php?action=ajax&rs=getLinkSuggest&format=json&query=" + cs.toString();
 			try {
-				HttpResponse response = ((HttpClient) params[0]).execute((HttpGet) params[1]);
+            	HttpGet get = new HttpGet(query);
+				HttpResponse response = client.execute(get);
 				HttpEntity entity = response.getEntity();
+				
 				if (entity != null) {
 					is = entity.getContent();
+					//convertStreamToString handles closing the is
 					String result = convertStreamToString(is);
-					is.close();
 					JSONObject json = new JSONObject(result);
+					//get the suggestions in an array
 	                valArray = (json.toJSONArray(json.names())).getJSONArray(0);
 	    			int size = valArray.length();
 	    			suggestions = new String[size];
 				    for (int i = 0; i < size; i++){ 
 				    	suggestions[i] = valArray.getString(i);
 					}
-				    entity.consumeContent();
-				    
+				    EntityUtils.consume(entity);
 				} else {
 					return null;
 				}
+				
 			} catch (Exception e) {
 				return null;
-			} 
+			} finally {
+				client.getConnectionManager().shutdown();
+			}
 		    return suggestions;
 		}
 
