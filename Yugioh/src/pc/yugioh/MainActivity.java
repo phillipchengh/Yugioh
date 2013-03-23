@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -15,7 +14,6 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import android.net.ConnectivityManager;
@@ -50,7 +48,7 @@ public class MainActivity extends Activity {
         adapter = new ArrayAdapter<String>(this,
         		android.R.layout.simple_list_item_1,
         		suggested_array);
-        
+
         ListView listView = (ListView) findViewById(R.id.suggestedList);
         inputSearch = (AutoCompleteTextView) findViewById(R.id.inputSearch);
         listView.setAdapter(adapter);
@@ -78,6 +76,7 @@ public class MainActivity extends Activity {
                     return;
                 }
             	String query = "http://yugioh.wikia.com/index.php?action=ajax&rs=getLinkSuggest&format=json&query=" + cs.toString();
+
             	HttpClient httpclient = new DefaultHttpClient();
             	HttpGet httpget = new HttpGet(query);
             	ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -86,7 +85,7 @@ public class MainActivity extends Activity {
         		if (ni != null && ni.isConnected()) {
         			new QuerySuggestions().execute(httpclient, httpget);
         		} else {
-
+        			//couldn't connect
         		}
             }
  
@@ -108,38 +107,32 @@ public class MainActivity extends Activity {
 
 		@Override
 		protected String[] doInBackground(Object... params) {
-			JSONArray nameArray;
 			JSONArray valArray;
-			JSONArray valArray2;
+			String[] suggestions;
+			InputStream is;
 			try {
 				HttpResponse response = ((HttpClient) params[0]).execute((HttpGet) params[1]);
 				HttpEntity entity = response.getEntity();
 				if (entity != null) {
-					InputStream is = entity.getContent();
+					is = entity.getContent();
 					String result = convertStreamToString(is);
 					is.close();
 					JSONObject json = new JSONObject(result);
-					nameArray = json.names();
-	                valArray = json.toJSONArray(nameArray);
-	                valArray2 = (JSONArray) valArray.get(0);
+	                valArray = (json.toJSONArray(json.names())).getJSONArray(0);
+	    			int size = valArray.length();
+	    			suggestions = new String[size];
+				    for (int i = 0; i < size; i++){ 
+				    	suggestions[i] = valArray.getString(i);
+					}
+				    entity.consumeContent();
+				    
 				} else {
 					return null;
 				}
 			} catch (Exception e) {
 				return null;
-			}
-			int size = valArray2.length();
-			//error when out of for loop
-			try {
-				String[] suggestions = new String[size];
-			    for (int i = 0; i < size; i++){ 
-	                String test = valArray2.get(i).toString();
-			    	suggestions[i] = test;
-				}
-			    return suggestions;
-			} catch(JSONException e) {
-				return null;
-			}
+			} 
+		    return suggestions;
 		}
 
 		@Override
