@@ -1,191 +1,51 @@
 package pc.yugioh;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-
-import ch.boye.httpclientandroidlib.*;
-import ch.boye.httpclientandroidlib.client.methods.HttpGet;
-import ch.boye.httpclientandroidlib.impl.client.DefaultHttpClient;
-import ch.boye.httpclientandroidlib.util.EntityUtils;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
-
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
-import android.os.AsyncTask;
+import pc.yugioh.SuggestionFragment.OnSuggestionListener;
 import android.os.Bundle;
 import android.app.Activity;
-import android.content.Context;
-import android.text.Editable;
-import android.text.TextWatcher;
+import android.app.FragmentManager;
+import android.app.FragmentTransaction;
+import android.content.Intent;
+import android.text.Layout;
+import android.util.Log;
 import android.view.Menu;
 import android.view.View;
-import android.widget.AdapterView;
-import android.widget.AdapterView.OnItemClickListener;
-import android.widget.ArrayAdapter;
-import android.widget.AutoCompleteTextView;
-import android.widget.ListView;
+import android.view.ViewGroup.LayoutParams;
+import android.widget.LinearLayout;
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements OnSuggestionListener {
 
-	private ArrayAdapter<String> adapter;
-	private AutoCompleteTextView inputSearch;
-	private DefaultHttpClient client;
+	private FragmentManager fm;
+	private FragmentTransaction ft;
 	
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        
-        ArrayList<String> suggested_array = new ArrayList<String>();
-        //
-        adapter = new ArrayAdapter<String>(this,
-        		android.R.layout.simple_list_item_1,
-        		suggested_array);
-
-        ListView listView = (ListView) findViewById(R.id.suggestedList);
-        inputSearch = (AutoCompleteTextView) findViewById(R.id.inputSearch);
-        listView.setAdapter(adapter);
-        listView.setOnItemClickListener(new OnItemClickListener() {
-
-			@Override
-			public void onItemClick(AdapterView<?> arg0, View arg1, int arg2,
-					long arg3) {
-				// TODO Auto-generated method stub
-				//Do something when an item is clicked
-				
-			}
-        	
-        });
-        inputSearch.addTextChangedListener(new TextWatcher() {
-       	 
-            @Override
-            public void onTextChanged(CharSequence cs, int arg1, int arg2, int arg3) {
-                // When user changed the Text
-            	
-            	if (cs.length() < 3) {
-            		return;
-            	}
-            	if (inputSearch.isPerformingCompletion()) {
-                    return;
-                }
-
-            	client = new DefaultHttpClient();
-            	ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        		NetworkInfo ni = cm.getActiveNetworkInfo();
-        		
-        		if (ni != null && ni.isConnected()) {
-        			new QuerySuggestions().execute(MainActivity.this.client, cs.toString());
-        			int i = 0;
-        		} else {
-        			//couldn't connect
-        		}
-            }
- 
-            @Override
-            public void beforeTextChanged(CharSequence arg0, int arg1, int arg2,
-                    int arg3) {
-                // TODO Auto-generated method stub
- 
-            }
- 
-            @Override
-            public void afterTextChanged(Editable arg0) {
-                // TODO Auto-generated method stub
-            }
-        });
+    	setContentView(R.layout.activity_main);
+        fm = getFragmentManager();
+    	ft = fm.beginTransaction();
+    	ft.add(R.id.mainLayout, new SuggestionFragment());
+    	ft.commit();
     }
 
-    private class QuerySuggestions extends AsyncTask<Object, Integer, String[]> {
-
-		@Override
-		protected String[] doInBackground(Object... params) {
-			JSONArray valArray;
-			String[] suggestions;
-			InputStream is;
-			DefaultHttpClient client = (DefaultHttpClient) params[0];
-			String cs = ((String) params[1]).replaceAll(" ", "_");
-			String query = "http://yugioh.wikia.com/index.php?action=ajax&rs=getLinkSuggest&format=json&query=" + cs.toString();
-			try {
-            	HttpGet get = new HttpGet(query);
-				HttpResponse response = client.execute(get);
-				HttpEntity entity = response.getEntity();
-				
-				if (entity != null) {
-					is = entity.getContent();
-					//convertStreamToString handles closing the is
-					String result = convertStreamToString(is);
-					JSONObject json = new JSONObject(result);
-					//get the suggestions in an array
-	                valArray = (json.toJSONArray(json.names())).getJSONArray(0);
-	    			int size = valArray.length();
-	    			suggestions = new String[size];
-				    for (int i = 0; i < size; i++){ 
-				    	suggestions[i] = valArray.getString(i);
-					}
-				    EntityUtils.consume(entity);
-				} else {
-					return null;
-				}
-				
-			} catch (Exception e) {
-				return null;
-			} finally {
-				client.getConnectionManager().shutdown();
-			}
-		    return suggestions;
-		}
-
-		@Override
-		protected void onPostExecute(String[] result) {
-			ArrayList<String> suggestions = new ArrayList<String>(Arrays.asList(result)); 
-			adapter.clear();
-			for (String suggestion : suggestions) {
-				adapter.add(suggestion);
-                adapter.notifyDataSetChanged();
-			}
-		}
-    	
-    }
-    
-    private static String convertStreamToString(InputStream is) {
-        /*
-         * To convert the InputStream to String we use the BufferedReader.readLine()
-         * method. We iterate until the BufferedReader return null which means
-         * there's no more data to read. Each line will appended to a StringBuilder
-         * and returned as String.
-         */
-        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-        StringBuilder sb = new StringBuilder();
- 
-        String line = null;
-        try {
-            while ((line = reader.readLine()) != null) {
-                sb.append(line + "\n");
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                is.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        return sb.toString();
-    }
-    
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.activity_main, menu);
         return true;
     }
-    
+
+	@Override
+	public void onSuggestionSelected(String suggestion) {
+		Intent intent = new Intent(this, ResultActivity.class);
+		intent.putExtra("Suggestion", suggestion);
+		startActivity(intent);
+	}
+
+	@Override
+	public void onSearchSelected(String search) {
+		Intent intent = new Intent(this, ResultActivity.class);
+		intent.putExtra("Search", search);
+		startActivity(intent);
+	}
 }
