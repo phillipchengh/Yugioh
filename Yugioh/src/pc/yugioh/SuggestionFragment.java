@@ -45,11 +45,11 @@ public class SuggestionFragment extends Fragment {
 	private DefaultHttpClient client;
 	private Activity activity;
 	
-	OnSuggestionListener mCallback;
+	private OnSuggestionListener mCallback;
 	
 	public interface OnSuggestionListener {
 		public void onSuggestionSelected(String suggestion);
-		public void onSearchSelected(String search);
+		public void initiateSearch(String search);
 	}
 	
 	@Override
@@ -58,7 +58,7 @@ public class SuggestionFragment extends Fragment {
 		try {
 			mCallback = (OnSuggestionListener) activity;
 		} catch (ClassCastException e) {
-			throw new ClassCastException(activity.toString() + " must implement OnSelectedListener");
+			throw new ClassCastException(activity.toString() + " must implement OnSuggestionListener");
 		}
 	}
 
@@ -94,7 +94,10 @@ public class SuggestionFragment extends Fragment {
 				if (actionId == EditorInfo.IME_ACTION_DONE/* && event.getKeyCode() == KeyEvent.KEYCODE_ENTER*/) {
 					//if (!event.isShiftPressed()) {
 						String search = ((AutoCompleteTextView) view).getText().toString();
-						mCallback.onSearchSelected(search);
+						if (search == null || search == "") {
+							return false;
+						}
+						mCallback.initiateSearch(search);
 						return true;
 					//}
 				}

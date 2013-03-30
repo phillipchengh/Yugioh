@@ -1,8 +1,10 @@
 package pc.yugioh;
 
+import pc.yugioh.SearchFragment.OnSearchListener;
 import pc.yugioh.SuggestionFragment.OnSuggestionListener;
 import android.os.Bundle;
 import android.app.Activity;
+import android.app.Fragment;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
 import android.content.Intent;
@@ -13,7 +15,7 @@ import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.LinearLayout;
 
-public class MainActivity extends Activity implements OnSuggestionListener {
+public class MainActivity extends Activity implements OnSuggestionListener, OnSearchListener {
 
 	private FragmentManager fm;
 	private FragmentTransaction ft;
@@ -36,16 +38,31 @@ public class MainActivity extends Activity implements OnSuggestionListener {
     }
 
 	@Override
-	public void onSuggestionSelected(String suggestion) {
+	public void initiateSearch(String search) {
+		Bundle bundle = new Bundle();
+		bundle.putString("Search", search);
+		Fragment fragment = new SearchFragment();
+		fragment.setArguments(bundle);
+        fm = getFragmentManager();
+    	ft = fm.beginTransaction();
+    	ft.replace(R.id.mainLayout, fragment);
+    	ft.addToBackStack(null);
+    	ft.commit();
+	}
+	
+	private void onSelection(String selection) {
 		Intent intent = new Intent(this, ResultActivity.class);
-		intent.putExtra("Suggestion", suggestion);
+		intent.putExtra("Selection", selection);
 		startActivity(intent);
+	}
+	
+	@Override
+	public void onSuggestionSelected(String suggestion) {
+		onSelection(suggestion);
 	}
 
 	@Override
 	public void onSearchSelected(String search) {
-		Intent intent = new Intent(this, ResultActivity.class);
-		intent.putExtra("Search", search);
-		startActivity(intent);
+		onSelection(search);
 	}
 }

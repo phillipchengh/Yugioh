@@ -6,5 +6,6 @@
     <string name="input_search_hint">Search...</string>
     <string name="hello_world">Hello world!</string>
     <string name="title_activity_result">ResultActivity</string>
+    <string name="midsearch">Searching...</string>
 
 </resources>

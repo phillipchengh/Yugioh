@@ -1,10 +1,11 @@
 package pc.yugioh;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -27,6 +28,7 @@ import android.net.NetworkInfo;
 import android.net.ParseException;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -44,16 +46,14 @@ public class GalleryFragment extends Fragment {
 		View view = inflater.inflate(R.layout.gallery_fragment, container, false);
 		activity = getActivity();
 		
-		//Convert the selection string to a more convenient search term
-		//Removing spaces and special characters yields better results in the query
-		String search = getArguments().getString("gallery_name").replaceAll("[^A-Za-z0-9]", "");
+		String gallery_name = getArguments().getString("gallery_name");
 		client = new DefaultHttpClient();
 		ImageView image = (ImageView) view.findViewById(R.id.card_image);
 		ConnectivityManager cm = (ConnectivityManager) activity.getSystemService(Context.CONNECTIVITY_SERVICE);
 		NetworkInfo ni = cm.getActiveNetworkInfo();
 		
 		if (ni != null && ni.isConnected()) {
-			new ImageTask(image).execute(client, search);
+			new ImageTask(image).execute(client, gallery_name);
 		} else {
 			//couldn't connect
 		}
@@ -71,8 +71,8 @@ public class GalleryFragment extends Fragment {
 		@Override
 		protected String doInBackground(Object... params) {
 			DefaultHttpClient client = (DefaultHttpClient) params[0];
-			String search = (String) params[1], url;
-			String query = "http://yugioh.wikia.com/api.php?action=query&list=allimages&format=json&ailimit=25&aifrom=" + search;
+			String gallery_name = (String) params[1], url;
+			String query = "http://yugioh.wikia.com/api.php?action=query&list=allimages&format=json&ailimit=25&aifrom=" + gallery_name;
 			InputStream is;
 			try {
             	HttpGet get = new HttpGet(query);
@@ -85,7 +85,7 @@ public class GalleryFragment extends Fragment {
 					JSONObject json = new JSONObject(result);
 					//Get array of results
 					JSONArray queries = (json.getJSONObject("query")).getJSONArray("allimages");
-					url = getURL(queries, search);
+					url = getURL(queries);
 				    EntityUtils.consume(entity);
 				} else {
 					return null;
@@ -98,85 +98,17 @@ public class GalleryFragment extends Fragment {
 			return url;
 		}
 		
-		 /* Filters:
-		 * 		"Anime" - Anime images
-		 * 		"-VG" - Video game images
-		 * 		"-ZX-" - I don't know what it is, but I don't want it
-		 */
-		private boolean filter(String query_name) {
-			if (!query_name.contains("Anime") &&
-					!query_name.contains("-VG") &&
-					!query_name.contains("-ZX-")) {
-				return true;
-			}
-			return false;
-		}
-		
-		//Parse through queries and get the most likely result, how this is determined is listed below
-		private String getURL(JSONArray queries, String search) {
-			JSONObject query_result;
-			String current_url = null, query_name;
-			boolean english = false;
-			SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-			Date current_date = null, query_date = null;
-			int query_length = queries.length();
+		private String getURL(JSONArray queries) {
+			String url = null;
 			try {
-				/*
-				 * The query_name must contain the card name and follows filters in filter()
-				 * Next, English card names are prioritized over others
-				 * Lastly, later time stamps are preferred
-				 */
-				for (int i = 0; i < query_length; i++) {
-					query_result = queries.getJSONObject(i);
-					query_name = query_result.getString("name");
-					try {
-						query_date = sdf.parse(query_result.getString("timestamp"));
-					} catch (java.text.ParseException e) {
-						return null;
-					}
-					//Check if correct card and follows filters
-					//TODO Check if + '-' is suffice or should a regex be used
-					if (query_name.contains(search + '-') && filter(query_name)) {
-						//If no card is found yet, initialize values
-						if (current_url == null) {
-							current_url = query_result.getString("url");
-							if (query_name.contains("-EN-")) {
-								english = true;
-							}
-							current_date = query_date;
-							continue;
-						}
-						//If current is not in English, then prioritize candidate if it is in English
-						if (!english) {
-							if (query_name.contains("-EN-")) {
-								current_url = query_result.getString("url");
-								english = true;
-								current_date = query_date;
-								continue;
-							}
-							//If candidate is a newer image, then switch
-							if (query_date.after(current_date)) {
-								current_url = query_result.getString("url");
-								current_date = query_date;
-							}
-						}
-						//If current is in English and candidate is not, then continue
-						if (!query_name.contains("-EN-")) {
-							continue;
-						}
-						//If candidate is a newer image, then switch
-						if (query_date.after(current_date)) {
-							current_url = query_result.getString("url");
-							current_date = query_date;
-						}
-					}
-				}
+				JSONObject query_result = queries.getJSONObject(0);
+				url = query_result.getString("url");
 			} catch (JSONException e) {
 				return null;
 			}
-			return current_url;
+			return url;
 		}
-
+		
 		@Override
 		protected void onPostExecute(String url) {
 			if (url == null) {
@@ -186,6 +118,31 @@ public class GalleryFragment extends Fragment {
 			new DrawImageTask(image).execute(url);
 		}
 		
+	}
+	
+
+	private static class FlushedInputStream extends FilterInputStream {
+	    public FlushedInputStream(InputStream inputStream) {
+	    super(inputStream);
+	    }
+
+	    @Override
+	    public long skip(long n) throws IOException {
+	        long totalBytesSkipped = 0L;
+	        while (totalBytesSkipped < n) {
+	            long bytesSkipped = in.skip(n - totalBytesSkipped);
+	            if (bytesSkipped == 0L) {
+	                  int byteValue = read();
+	                  if (byteValue < 0) {
+	                      break;  // we reached EOF
+	                  } else {
+	                      bytesSkipped = 1; // we read one byte
+	                  }
+	           }
+	           totalBytesSkipped += bytesSkipped;
+	        }
+	        return totalBytesSkipped;
+	    }
 	}
 	
 	private class DrawImageTask extends AsyncTask<String, Void, Bitmap> {
@@ -203,7 +160,7 @@ public class GalleryFragment extends Fragment {
 			InputStream is;
 			try {
 				is = new java.net.URL(url).openStream();
-				map = BitmapFactory.decodeStream(is);
+				map = BitmapFactory.decodeStream(new FlushedInputStream(is));
 			} catch (Exception e) {
 				Log.e("Bitmap Error", e.getMessage());
 			}
@@ -213,6 +170,12 @@ public class GalleryFragment extends Fragment {
 		@Override
 		protected void onPostExecute(Bitmap result) {
 			try {
+				int height, width;
+				if (result.getHeight() >= 2048 || result.getWidth() >= 2048) {
+					height = 2048;
+					width = (int) ((2.5/3.375)*2048.0);
+					result = Bitmap.createScaledBitmap(result, width, height, true);
+				}
 				image.setImageBitmap(result);
 			} catch (Exception e) {
 				Log.e("Error", "Setting Bitmap Error", e);
