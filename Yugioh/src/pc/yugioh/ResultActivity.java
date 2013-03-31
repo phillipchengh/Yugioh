@@ -25,13 +25,18 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 import android.view.Menu;
+import android.view.View;
+import android.widget.Button;
 
 public class ResultActivity extends Activity implements OnArchseriesListener {
 	
 	private FragmentManager fm;
 	private FragmentTransaction ft;
 	private DefaultHttpClient client;
+	private Fragment[] fragments;
 	private Fragment currentFragment;
+	private Button gallery_button;
+	private Button info_button;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -40,10 +45,16 @@ public class ResultActivity extends Activity implements OnArchseriesListener {
 		
     	client = new DefaultHttpClient();
     	currentFragment = null;
+    	fragments = new Fragment[3];
+    	
 		String selection = getIntent().getStringExtra("Selection");
 		if (selection == null) {
 			return;
 		}
+
+		gallery_button = (Button) findViewById(R.id.galleryButton);
+		info_button = (Button) findViewById(R.id.infoButton);
+
     	ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
 		NetworkInfo ni = cm.getActiveNetworkInfo();
 		
@@ -58,45 +69,38 @@ public class ResultActivity extends Activity implements OnArchseriesListener {
 		}
 	}
 	
-	private void setFragment(Fragment fragment) {
+	private void setFragment(int i) {
         fm = getFragmentManager();
     	ft = fm.beginTransaction();
     	if (currentFragment == null) {
-    		ft.add(R.id.resultLayout, fragment);
+    		ft.add(R.id.resultLayout, fragments[i]);
+        	ft.addToBackStack(null);
     	} else {
-    		ft.replace(R.id.resultLayout, fragment);
+    		ft.replace(R.id.resultLayout, fragments[i]);
         	ft.addToBackStack(null);
     	}
+    	currentFragment = fragments[i];
     	ft.commit();
-    	currentFragment = fragment;
 	}
 	
 	private void setupArchseries(String rdf) {
 		Bundle bundle = new Bundle();
 		bundle.putString("Archseries", rdf);
-		Fragment fragment = new ArchseriesFragment();
-		fragment.setArguments(bundle);
-		setFragment(fragment);
+		fragments[0] = new ArchseriesFragment();
+		fragments[0].setArguments(bundle);
+		setFragment(0);
 	}
 	
-	private void setupInfo(String rdf, String image_name, int card_type) {
+	private void setupFragments(String rdf, String image_name, int card_type) {
 		Bundle bundle = new Bundle();
 		bundle.putString("rdf", rdf);
 		bundle.putString("gallery_name", image_name);
 		bundle.putInt("card_type", card_type);
-		Fragment fragment = new InfoFragment();
-		setFragment(fragment);
-	}
-	
-	private void setupGallery(String image_name, int card_type) {
-		//Difference between series vs. archetype?
-		
-		Bundle bundle = new Bundle();
-		bundle.putString("gallery_name", image_name);
-		bundle.putInt("card_type", card_type);
-		Fragment fragment = new GalleryFragment();
-		fragment.setArguments(bundle);
-		setFragment(fragment);
+		fragments[1] = new GalleryFragment();
+		fragments[1].setArguments(bundle);
+		fragments[2] = new InfoFragment();
+		fragments[2].setArguments(bundle);
+		setFragment(1);
 	}
 	
 	private class GetRDFTask extends AsyncTask<Object, Void, String> {
@@ -182,7 +186,22 @@ public class ResultActivity extends Activity implements OnArchseriesListener {
 				Log.e("ResultActivity", "IO error", e);
 			}
 			if (!archseries) {
-				setupGallery(image_name, card_type);
+				setupFragments(result, image_name, card_type);
+				gallery_button.setOnClickListener(new View.OnClickListener() {
+		            public void onClick(View v) {
+		            	if (currentFragment != fragments[0] && currentFragment != fragments[1]) {
+		            		setFragment(1);
+		            	}
+		            }
+		        });
+				
+				info_button.setOnClickListener(new View.OnClickListener() {
+		            public void onClick(View v) {
+		            	if (currentFragment != fragments[0] && currentFragment != fragments[2]) {
+		            		setFragment(2);
+		            	}
+		            }
+		        });
 			}
 		}
 		
