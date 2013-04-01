@@ -74,10 +74,9 @@ public class ResultActivity extends Activity implements OnArchseriesListener {
     	ft = fm.beginTransaction();
     	if (currentFragment == null) {
     		ft.add(R.id.resultLayout, fragments[i]);
-        	ft.addToBackStack(null);
     	} else {
     		ft.replace(R.id.resultLayout, fragments[i]);
-        	ft.addToBackStack(null);
+    		ft.addToBackStack(null);
     	}
     	currentFragment = fragments[i];
     	ft.commit();
@@ -140,7 +139,7 @@ public class ResultActivity extends Activity implements OnArchseriesListener {
 		private String getCardImageUrl(String line) {
 			int start = "<property:Card_Image rdf:resource=\"&wiki;File-3A".length();
 			int end = line.indexOf("\"/>", start);
-			return (line.substring(start+2, end)).replaceAll("2D", "");
+			return (line.substring(start+2, end)).replaceAll("2D", "").replaceAll("-27", "'");
 		}
 		
 		@Override
