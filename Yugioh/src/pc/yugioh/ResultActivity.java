@@ -109,7 +109,7 @@ public class ResultActivity extends Activity implements OnArchseriesListener {
 		@Override
 		protected String doInBackground(Object... params) {
 			DefaultHttpClient client = (DefaultHttpClient) params[0];
-			selection = ((String) params[1]).replaceAll(" ", "_");
+			selection = (String) ((String) params[1]).replaceAll(" ", "_").replaceAll("\"", "%22");
 			String result = null;
 			String url = "http://yugioh.wikia.com/wiki/Special:ExportRDF/" + selection;
 			InputStream is = null;
